@@ -104,13 +104,15 @@
                     </div>
 
                     <div class="flex items-center space-x-4">
-                        <!-- User Menu Mockups -->
                         <div class="relative flex items-center space-x-3">
                             <div class="hidden text-right lg:block">
-                                <p class="text-sm font-medium text-slate-700">Admin User</p>
-                                <p class="text-xs text-slate-500">Super Admin</p>
+                                <p class="text-sm font-black text-[#1C2434] uppercase tracking-tight">{{ Auth::user()->name }}</p>
+                                <form action="{{ route('logout') }}" method="POST">
+                                    @csrf
+                                    <button type="submit" class="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-red-600 transition-colors">Sign Out</button>
+                                </form>
                             </div>
-                            <img class="h-10 w-10 rounded-full border-2 border-primary object-cover" src="https://ui-avatars.com/api/?name=Admin+User&background=1C2434&color=fff" alt="User">
+                            <img class="h-10 w-10 rounded-full border-2 border-[#1C2434]/5 object-cover" src="https://ui-avatars.com/api/?name={{ urlencode(Auth::user()->name) }}&background=1C2434&color=fff" alt="User">
                         </div>
                     </div>
                 </div>
