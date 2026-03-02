@@ -1,0 +1,34 @@
+# Implementation Plan: Dynamic Invoice Types
+
+This plan outlines the steps to transform the generic invoice into a dynamic document that adapts to the booking lifecycle stage (Rent, Delivery, or Return).
+
+## 1. Document Type Logic
+We will determine the "Invoice Type" based on the booking's `status`:
+*   **RENT INVOICE**: Status is `draft` or `confirmed`. Focuses on initial booking details and advance payment.
+*   **DELIVERY RECEIPT**: Status is `packed` or `dispatched`. Focuses on dispatch details and balance collection.
+*   **RETURN SETTLEMENT**: Status is `finished`. Focuses on final fines, deductions, and refunds.
+
+## 2. UI/UX Enhancements in [invoice.blade.php](file:///C:/laravel/laravellearning/resources/views/invoice.blade.php)
+### Header Title
+*   Instead of a static "INVOICE", we will use a dynamic badge:
+    *   `CONFIRMED` -> **BOOKING INVOICE** (Blue Theme)
+    *   `DISPATCHED` -> **DELIVERY CHALLAN** (Amber Theme)
+    *   `FINISHED` -> **RETURN SETTLEMENT RECEIPT** (Emerald Theme)
+
+### Section Conditional Logic
+*   **Rent Focus**: Always visible (Base items and prices).
+*   **Delivery Focus**: Display `Delivery Payment` section prominently if `status` is `dispatched` or higher.
+*   **Return Focus**: Display the `RETURN SETTLEMENT SUMMARY` box ONLY when the booking is `finished`.
+
+## 3. Visual Differentiation
+*   **Color Accents**: Update the top border and primary text colors based on the document type.
+    *   Rent: `#3b82f6` (Blue)
+    *   Delivery: `#f59e0b` (Amber)
+    *   Return: `#10b981` (Emerald)
+*   **Watermarks (Optional)**: Add a subtle status watermark in the background of the PDF.
+
+## 4. Technical Steps
+1.  Update [invoice.blade.php](file:///C:/laravel/laravellearning/resources/views/invoice.blade.php) CSS to include dynamic color variables.
+2.  Add a `@php` block at the top of the blade template to define the `$docType` and `$themeColor`.
+3.  Wrap specific sections (like Return Summary) in `@if($booking->status === 'finished')`.
+4.  Test PDF generation for each status to ensure Rupee symbols and layouts remain perfect.

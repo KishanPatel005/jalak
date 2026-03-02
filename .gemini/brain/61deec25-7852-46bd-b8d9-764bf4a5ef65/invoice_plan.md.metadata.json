@@ -1,0 +1,5 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_IMPLEMENTATION_PLAN",
+  "summary":  "A detailed plan to enhance the invoice system by categorizing documents into Rent, Delivery, and Return types based on the booking status. Includes UI/UX improvements and conditional rendering for each document type.",
+  "updatedAt":  "2026-03-02T14:53:20.389047600Z"
+}

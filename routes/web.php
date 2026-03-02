@@ -9,14 +9,6 @@ use App\Http\Controllers\ReturnController;
 use App\Http\Controllers\LoginController;
 
 // Auth Routes
-Route::get('/init-user', function() {
-    \App\Models\User::updateOrCreate(
-        ['email' => 'kishan7112@gmail.com'],
-        ['name' => 'Kishan', 'password' => Hash::make('123')]
-    );
-    return "User kishan7112@gmail.com initialized with pass 123. Please delete this route after use.";
-});
-
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [LoginController::class, 'login'])->name('login.post');
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
