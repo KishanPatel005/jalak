@@ -1,8 +1,27 @@
+@php
+    $status = $booking->status;
+    $type = $type ?? 'auto'; // Force 'booking', 'delivery', or 'return'
+    
+    $docType = 'RENT INVOICE';
+    $themeColor = '#3b82f6'; // Blue
+    $themeBg = '#eff6ff';
+
+    // Apply forced type or dynamic logic
+    if ($type === 'return' || ($type === 'auto' && $status === 'finished')) {
+        $docType = 'RETURN SETTLEMENT';
+        $themeColor = '#059669'; // Emerald
+        $themeBg = '#ecfdf5';
+    } elseif ($type === 'delivery' || ($type === 'auto' && in_array($status, ['dispatched', 'packed']))) {
+        $docType = 'DELIVERY RECEIPT';
+        $themeColor = '#d97706'; // Amber
+        $themeBg = '#fffbeb';
+    }
+@endphp
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Invoice - {{ $booking->invoice_no }}</title>
+    <title>{{ $docType }} - {{ $booking->invoice_no }}</title>
     <style>
         @charset "UTF-8";
         * { font-family: 'DejaVu Sans', sans-serif !important; }
@@ -10,17 +29,18 @@
         .invoice-box { padding: 30px; border: 1px solid #eee; background: #fff; }
         table { width: 100%; line-height: inherit; text-align: left; border-collapse: collapse; }
         table td { padding: 8px; vertical-align: top; }
-        .header { border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 20px; }
-        .title { font-size: 24px; font-weight: bold; color: #1e293b; text-transform: uppercase; letter-spacing: 2px; }
+        .header { border-bottom: 3px solid {{ $themeColor }}; padding-bottom: 20px; margin-bottom: 20px; }
+        .title { font-size: 24px; font-weight: bold; color: {{ $themeColor }}; text-transform: uppercase; letter-spacing: 2px; }
         .info-table td { width: 50%; }
         .details-table { margin-top: 20px; }
-        .details-table th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; padding: 10px; font-weight: bold; text-align: left; text-transform: uppercase; font-size: 9px; }
+        .details-table th { background: #f8fafc; border-bottom: 2px solid {{ $themeColor }}; padding: 10px; font-weight: bold; text-align: left; text-transform: uppercase; font-size: 9px; }
         .details-table td { border-bottom: 1px solid #f1f5f9; padding: 10px; }
         .totals-section { margin-top: 30px; float: right; width: 300px; }
         .totals-table td { padding: 5px 0; }
-        .grand-total { font-size: 16px; font-weight: bold; color: #2563eb; border-top: 2px solid #2563eb; padding-top: 10px; }
+        .grand-total { font-size: 16px; font-weight: bold; color: {{ $themeColor }}; border-top: 2px solid {{ $themeColor }}; padding-top: 10px; }
         .barcode { text-align: center; margin-top: 40px; clear: both; }
         .footer { position: fixed; bottom: 0; width: 100%; text-align: center; color: #94a3b8; font-size: 9px; padding: 20px 0; border-top: 1px solid #f1f5f9; }
+        .doc-badge { display: inline-block; padding: 4px 10px; background: {{ $themeBg }}; color: {{ $themeColor }}; font-weight: bold; font-size: 10px; border-radius: 4px; margin-top: 10px; text-transform: uppercase; }
     </style>
 </head>
 <body>
@@ -29,7 +49,7 @@
             <table>
                 <tr>
                     <td>
-                        <div class="title">INVOICE</div>
+                        <div class="title">{{ $docType }}</div>
                         <div style="margin-top: 5px; color: #64748b;">
                             Date: {{ date('d M Y') }}<br>
                             Invoice #: {{ $booking->invoice_no }}
@@ -41,6 +61,7 @@
                             jalak fashion, dholka<br>
                             Phone: +91 90676 00673
                         </div>
+                        <div class="doc-badge">{{ $status }}</div>
                     </td>
                 </tr>
             </table>
@@ -57,9 +78,9 @@
                     @endif
                 </td>
                 <td style="text-align: right;">
-                    <div style="font-weight: bold; text-transform: uppercase; color: #64748b; margin-bottom: 5px;">Booking Status:</div>
-                    <div style="font-weight: bold; color: {{ $booking->status === 'confirmed' ? '#059669' : '#d97706' }}; text-transform: uppercase;">
-                        {{ $booking->status }}
+                    <div style="font-weight: bold; text-transform: uppercase; color: #64748b; margin-bottom: 5px;">Status:</div>
+                    <div style="font-weight: bold; color: {{ $themeColor }}; text-transform: uppercase; font-size: 14px;">
+                        {{ $status }}
                     </div>
                 </td>
             </tr>
@@ -137,7 +158,7 @@
                         Delivery Payment:
                         <div style="font-size: 8px; font-weight: normal; color: #64748b;">{{ \Carbon\Carbon::parse($booking->dispatch_paid_at)->format('d M y - h:i A') }}</div>
                     </td>
-                    <td style="text-align: right; font-weight: bold; color: #059669;">
+                    <td style="text-align: right; font-weight: bold; color: {{ $themeColor }};">
                         <span style="font-family: 'DejaVu Sans'; font-weight: bold;">&#8377;</span>{{ number_format($booking->dispatch_paid, 2) }}
                     </td>
                 </tr>
@@ -170,11 +191,11 @@
                     </td>
                 </tr>
                 <tr>
-                    <td style="font-weight: bold; font-size: 12px; color: #059669;">
+                    <td style="font-weight: bold; font-size: 12px; color: {{ $themeColor }};">
                         Final Refund to Customer:
                         <div style="font-size: 8px; font-weight: normal; color: #64748b;">Settled on {{ \Carbon\Carbon::parse($returnDate)->format('d M y - h:i A') }}</div>
                     </td>
-                    <td style="text-align: right; font-weight: bold; font-size: 16px; color: #059669;">
+                    <td style="text-align: right; font-weight: bold; font-size: 16px; color: {{ $themeColor }};">
                         <span style="font-family: 'DejaVu Sans'; font-weight: bold;">&#8377;</span>{{ number_format($totalRefund, 2) }}
                     </td>
                 </tr>

@@ -37,13 +37,24 @@
 
 <!-- Filters -->
 <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6">
-    <form action="{{ route('rent.index') }}" method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+    <form action="{{ route('rent.index') }}" method="GET" class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
         <div>
             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Search</label>
             <div class="relative">
                 <input type="text" name="search" value="{{ $search }}" placeholder="Invoice, Name, Mobile..." class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/20">
                 <svg class="w-4 h-4 absolute left-3 top-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             </div>
+        </div>
+        <div>
+            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Status</label>
+            <select name="status" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/20 appearance-none">
+                <option value="all">All Status</option>
+                <option value="draft" {{ request('status') == 'draft' ? 'selected' : '' }}>Draft</option>
+                <option value="confirmed" {{ request('status') == 'confirmed' ? 'selected' : '' }}>Confirmed</option>
+                <option value="packed" {{ request('status') == 'packed' ? 'selected' : '' }}>Packed</option>
+                <option value="dispatched" {{ request('status') == 'dispatched' ? 'selected' : '' }}>Dispatched</option>
+                <option value="finished" {{ request('status') == 'finished' ? 'selected' : '' }}>Finished</option>
+            </select>
         </div>
         <div>
             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">From Date</label>
@@ -116,9 +127,9 @@
                             {{ $booking->status }}
                         </span>
                     </td>
-                    <td class="px-6 py-6 text-right">
-                        <div class="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <a href="{{ route('bookings.invoice', $booking->id) }}" class="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all shadow-sm bg-white border border-slate-100" title="Download Invoice">
+                    <td class="px-8 py-6 text-right">
+                        <div class="flex items-center justify-end space-x-2 transition-all">
+                            <a href="{{ route('bookings.invoice', $booking->id) }}" class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors shadow-sm bg-white border border-slate-100" title="Download Invoice">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9h1.5m1.5 0H13m-4 4h1.5m1.5 0H13m-4 4h1.5m1.5 0H13"/></svg>
                             </a>
                             <a href="{{ route('bookings.edit', $booking->id) }}" class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all shadow-sm bg-white border border-slate-100" title="Edit">

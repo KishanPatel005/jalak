@@ -7,7 +7,38 @@ use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\ReturnController;
 
 Route::get('/', function () {
-    return view('index');
+    // Inventory
+    $totalProducts = \App\Models\Product::count();
+    $totalQty = \App\Models\ProductStock::sum('qty');
+
+    // Deliveries
+    $today = date('Y-m-d');
+    $tomorrow = date('Y-m-d', strtotime('+1 day'));
+
+    $todayDeliveries = \App\Models\BookingItem::where('from_date', $today)->count();
+    
+    $tomorrowDeliveries = \App\Models\BookingItem::where('from_date', $tomorrow)->count();
+    $tomorrowPacked = \App\Models\BookingItem::where('from_date', $tomorrow)->where('is_packed', true)->count();
+    $tomorrowUnpacked = \App\Models\BookingItem::where('from_date', $tomorrow)->where('is_packed', false)->count();
+
+    // Returns
+    $todayReturns = \App\Models\BookingItem::where('to_date', $today)->count();
+    $tomorrowReturns = \App\Models\BookingItem::where('to_date', $tomorrow)->count();
+
+    // General Stats
+    $totalBooking = \App\Models\Booking::count();
+    $totalDelivered = \App\Models\Booking::whereIn('status', ['dispatched', 'finished'])->count();
+
+    // Recent Transactions
+    $recentTransactions = \App\Models\Booking::with('customer')->latest()->take(6)->get();
+
+    return view('index', compact(
+        'totalProducts', 'totalQty', 
+        'todayDeliveries', 'tomorrowDeliveries', 'tomorrowPacked', 'tomorrowUnpacked',
+        'todayReturns', 'tomorrowReturns',
+        'totalBooking', 'totalDelivered',
+        'recentTransactions'
+    ));
 });
 
 // Product Routes
@@ -25,6 +56,9 @@ Route::get('/manage-booking/invoice/{id}', [BookingController::class, 'downloadI
 Route::post('/manage-booking', [BookingController::class, 'store'])->name('bookings.store');
 Route::post('/manage-booking/update/{id}', [BookingController::class, 'update'])->name('bookings.update');
 Route::delete('/manage-booking/delete/{id}', [BookingController::class, 'destroy'])->name('bookings.destroy');
+
+// Invoice Center
+Route::get('/invoices', [BookingController::class, 'invoices'])->name('invoices.index');
 
 // API Search Routes
 Route::get('/api/search-customers', [BookingController::class, 'searchCustomer']);

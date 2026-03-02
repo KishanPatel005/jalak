@@ -13,13 +13,49 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class BookingController extends Controller
 {
+    public function invoices(Request $request)
+    {
+        $search = $request->get('search');
+        $type = $request->get('type', 'all'); // all, booking, delivery, return
+
+        $query = Booking::with('customer', 'items')->latest();
+
+        if ($type === 'booking') {
+            $query->whereNotIn('status', ['cancelled']);
+        } elseif ($type === 'delivery') {
+            $query->whereIn('status', ['packed', 'dispatched', 'finished']);
+        } elseif ($type === 'return') {
+            $query->where('status', 'finished');
+        }
+
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('invoice_no', 'LIKE', "%{$search}%")
+                  ->orWhereHas('customer', function($cq) use ($search) {
+                      $cq->where('name', 'LIKE', "%{$search}%")
+                        ->orWhere('mobile', 'LIKE', "%{$search}%");
+                  });
+            });
+        }
+
+        $bookings = $query->paginate(15)->appends($request->all());
+        
+        return view('invoices', compact('bookings', 'search', 'type'));
+    }
+
     public function index(Request $request)
     {
         $search = $request->get('search');
         $fromDate = $request->get('from_date');
         $toDate = $request->get('to_date');
+        $status = $request->get('status');
 
         $query = Booking::with('customer', 'items')->latest();
+
+        // Status Filter
+        if ($status && $status != 'all') {
+            $query->where('status', $status);
+        }
 
         // Search Filter (Invoice, Name, Phone)
         if ($search) {
@@ -44,7 +80,7 @@ class BookingController extends Controller
         // Paginate results
         $bookings = $query->paginate(15)->withQueryString();
 
-        return view('rent', compact('bookings', 'todayBookedCount', 'totalBookedCount', 'search', 'fromDate', 'toDate'));
+        return view('rent', compact('bookings', 'todayBookedCount', 'totalBookedCount', 'search', 'fromDate', 'toDate', 'status'));
     }
 
     public function create()
@@ -282,11 +318,16 @@ class BookingController extends Controller
         return redirect('/rent')->with('success', "Booking deleted successfully!");
     }
 
-    public function downloadInvoice($id)
+    public function downloadInvoice($id, Request $request)
     {
         $booking = Booking::with(['customer', 'items.product'])->findOrFail($id);
+        $type = $request->get('type'); // Force a specific type if requested
         
-        $pdf = Pdf::loadView('invoice', compact('booking'));
-        return $pdf->download("Invoice-{$booking->invoice_no}.pdf");
+        $pdf = Pdf::loadView('invoice', compact('booking', 'type'));
+        
+        $filename = "{$booking->invoice_no}";
+        if ($type) $filename .= "_{$type}";
+        
+        return $pdf->download("{$filename}.pdf");
     }
 }
