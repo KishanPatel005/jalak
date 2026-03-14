@@ -71,12 +71,12 @@ Route::middleware(['auth'])->group(function () {
     // Delivery Routes
     Route::get('/deliveries', [DeliveryController::class, 'index'])->name('deliveries.index');
     Route::get('/manage-delivery/{id}', [DeliveryController::class, 'manage'])->name('deliveries.manage');
-    Route::post('/manage-delivery/update/{id}', [DeliveryController::class, 'update'])->name('deliveries.update');
+    Route::post('/manage-delivery/packing/{id}', [DeliveryController::class, 'updatePacking'])->name('deliveries.updatePacking');
+    Route::post('/manage-delivery/dispatch/{id}', [DeliveryController::class, 'dispatch'])->name('deliveries.dispatch');
 
     // Return Routes
     Route::get('/returns', [ReturnController::class, 'index'])->name('returns.index');
     Route::get('/manage-return/{id}', [ReturnController::class, 'manage'])->name('returns.manage');
-    Route::post('/manage-return/update/{id}', [ReturnController::class, 'update'])->name('returns.update');
 
     // API Search Routes
     Route::get('/api/search-customers', [BookingController::class, 'searchCustomer']);
@@ -86,7 +86,29 @@ Route::middleware(['auth'])->group(function () {
 
     // Invoice PDF
     Route::get('/booking/invoice/{id}', [BookingController::class, 'downloadInvoice'])->name('bookings.invoice');
+    Route::get('/booking/whatsapp/{id}', [BookingController::class, 'sendWhatsapp'])->name('bookings.whatsapp');
 
     Route::post('/manage-return/update-item/{id}', [ReturnController::class, 'updateItemReturn'])->name('returns.updateItem');
     Route::post('/manage-return/finish/{id}', [ReturnController::class, 'finish'])->name('returns.finish');
+
+    // Manual Cron Trigger Routes
+    Route::get('/run-cron/tomorrows-deliveries', function() {
+        \Illuminate\Support\Facades\Artisan::call('notify:tomorrows-deliveries');
+        return back()->with('success', 'Tomorrow\'s deliveries notification has been sent via WhatsApp.');
+    })->name('cron.deliveries');
+
+    Route::get('/run-cron/tomorrows-not-packed', function() {
+        \Illuminate\Support\Facades\Artisan::call('notify:tomorrows-not-packed');
+        return back()->with('success', 'Tomorrow\'s not packed notification has been sent via WhatsApp.');
+    })->name('cron.not-packed');
+    
+    Route::get('/run-cron/customer-tomorrow-delivery', function() {
+        \Illuminate\Support\Facades\Artisan::call('notify:customer-tomorrow-delivery');
+        return back()->with('success', 'Customer delivery (tomorrow) notifications have been sent via WhatsApp.');
+    })->name('cron.customer-delivery');
+
+    Route::get('/run-cron/customer-today-return', function() {
+        \Illuminate\Support\Facades\Artisan::call('notify:customer-today-return');
+        return back()->with('success', 'Customer return (today) notifications have been sent via WhatsApp.');
+    })->name('cron.customer-return');
 });

@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\ProductStock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class BookingController extends Controller
@@ -209,14 +210,27 @@ class BookingController extends Controller
         return DB::transaction(function () use ($request) {
             // 1. Handle Customer
             if ($request->is_new_customer === 'true' || $request->is_new_customer === true) {
-                $customer = Customer::create([
-                    'name' => $request->customer_name,
-                    'mobile' => $request->customer_mobile,
-                    'address' => $request->customer_address,
-                ]);
+                // Use firstOrCreate so if the mobile already exists, we reuse that customer
+                // instead of crashing with a duplicate key error.
+                $customer = Customer::firstOrCreate(
+                    ['mobile' => $request->customer_mobile],  // search by mobile
+                    [
+                        'name'    => $request->customer_name,
+                        'address' => $request->customer_address,
+                    ]
+                );
+
+                // If customer already existed, update name/address in case they changed.
+                if (!$customer->wasRecentlyCreated) {
+                    $customer->update([
+                        'name'    => $request->customer_name,
+                        'address' => $request->customer_address ?? $customer->address,
+                    ]);
+                }
             } else {
                 $customer = Customer::findOrFail($request->customer_id);
             }
+
 
             // 2. Generate Invoice No (BK-2026-001)
             $lastBooking = Booking::latest()->first();
@@ -247,6 +261,39 @@ class BookingController extends Controller
                     'to_date' => $item['to_date'],
                     'status' => 'pending',
                 ]);
+            }
+
+            // 5. WhatsApp Integration
+            try {
+                $waService = app(\App\Services\WhatsAppService::class);
+                
+                // Load PDF
+                $pdf = Pdf::loadView('invoice', ['booking' => $booking->load('customer', 'items.product'), 'type' => 'booking']);
+                $pdfContent = $pdf->output();
+                $fileName = "{$booking->invoice_no}.pdf";
+
+                // Prepare Item Details for Message
+                $itemDetails = "";
+                foreach ($booking->items as $item) {
+                    $itemDetails .= "- *{$item->product->name}* ({$item->size})\n";
+                }
+
+                $pickupDate = \Carbon\Carbon::parse($booking->items->first()->from_date)->subDay()->format('d M Y');
+                $returnDate = \Carbon\Carbon::parse($booking->items->first()->to_date)->format('d M Y');
+                $bookedDates = \Carbon\Carbon::parse($booking->items->first()->from_date)->format('d M Y') . " to " . $returnDate;
+
+                // Customer Message
+                $customerMsg = "હેલો *{$customer->name}*,\n\nતમારું બુકિંગ *{$booking->invoice_no}* કન્ફર્મ થઈ ગયું છે! 🎉\n\n*બુકિંગ વિગતો:*\n{$itemDetails}\n*કુલ રકમ:* ₹" . number_format($booking->grand_total) . "\n*એડવાન્સ પેમેન્ટ:* ₹" . number_format($booking->advance_paid) . "\n*બાકી રકમ:* ₹" . number_format($booking->balance_to_pay) . "\n\n*મહત્વપૂર્ણ માહિતી:*\n- પિકઅપ તારીખ: *{$pickupDate}* સવારે *11:30 વાગ્યે*\n- વપરાશની તારીખ: *{$bookedDates}*\n- જમા કરવાની તારીખ: *{$returnDate}* સવારે *11:30 વાગ્યે*\n\nજલક ફેશન પસંદ કરવા બદલ આભાર!\n\n---\n\nHello *{$customer->name}*,\n\nYour booking *{$booking->invoice_no}* is confirmed! 🎉\n\n*Order Details:*\n{$itemDetails}\n*Total:* ₹" . number_format($booking->grand_total) . "\n*Advance Paid:* ₹" . number_format($booking->advance_paid) . "\n*Balance:* ₹" . number_format($booking->balance_to_pay) . "\n\n*Important Instructions:*\n- Pickup on *{$pickupDate}* at *11:30 AM*\n- Booked Dates: *{$bookedDates}*\n- Return on *{$returnDate}* at *11:30 AM*\n\nThank you for choosing *Jalak Fashion*!";
+
+                $waService->sendPdfContent($customer->mobile, $pdfContent, $fileName, $customerMsg);
+
+                // Admin Message
+                $adminMsg = "✨ *New Booking Received*\n\n*Invoice:* {$booking->invoice_no}\n*Customer:* {$customer->name} ({$customer->mobile})\n*Products:*\n{$itemDetails}\n*Total:* ₹" . number_format($booking->grand_total) . "\n\nCustomer will pickup on *{$pickupDate}*, use on *{$booking->items->first()->from_date}*, and return on *{$returnDate}*.";
+                
+                $waService->sendPdfContent($waService->getAdminNumber(), $pdfContent, $fileName, $adminMsg);
+
+            } catch (\Exception $e) {
+                Log::error("WhatsApp automated send failed: " . $e->getMessage());
             }
 
             return redirect('/rent')->with('success', "Booking {$invoiceNo} created successfully!");
@@ -329,5 +376,36 @@ class BookingController extends Controller
         if ($type) $filename .= "_{$type}";
         
         return $pdf->download("{$filename}.pdf");
+    }
+
+    public function sendWhatsapp($id, Request $request, \App\Services\WhatsAppService $waService)
+    {
+        $booking = Booking::with(['customer', 'items.product'])->findOrFail($id);
+        $type = $request->get('type');
+        
+        // 1. Generate PDF
+        $pdf = Pdf::loadView('invoice', compact('booking', 'type'));
+        $pdfContent = $pdf->output();
+        
+        $filename = "{$booking->invoice_no}";
+        if ($type) $filename .= "_{$type}";
+        $filename .= ".pdf";
+
+        // 2. Prepare Caption
+        $label = "Invoice";
+        if ($type === 'delivery') $label = "Delivery Challan";
+        if ($type === 'return') $label = "Return Settlement";
+
+        $caption = "હેલો *{$booking->customer->name}*,\n\nઅહીં તમારું *{$label}* છે.\n\n*ઇનવોઇસ નમ્બર:* {$booking->invoice_no}\n*કુલ રકમ:* ₹" . number_format($booking->grand_total) . "\n*બાકી રકમ:* ₹" . number_format($booking->balance_to_pay) . "\n\nજલક ફેશન પસંદ કરવા બદલ આભાર!\n\n---\n\nHello *{$booking->customer->name}*,\n\nHere is your *{$label}* from *Jalak Fashion*.\n\n*Invoice No:* {$booking->invoice_no}\n*Total Amount:* ₹" . number_format($booking->grand_total) . "\n*Balance:* ₹" . number_format($booking->balance_to_pay) . "\n\nThank you for choosing us!";
+
+        // 3. Send via WhatsApp
+        $result = $waService->sendPdfContent($booking->customer->mobile, $pdfContent, $filename, $caption);
+
+        if (isset($result['error']) || (isset($result['status']) && $result['status'] === 'error')) {
+            $msg = $result['message'] ?? ($result['response']['message'] ?? 'Unknown Error');
+            return back()->with('error', 'WhatsApp Failed: ' . $msg);
+        }
+
+        return back()->with('success', "WhatsApp {$label} sent to {$booking->customer->mobile} successfully!");
     }
 }

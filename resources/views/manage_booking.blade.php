@@ -53,7 +53,7 @@
         'showHistory' => false,
         'status' => 'pending'
     ]]) }},
-    advance: {{ $booking->advance_paid ?? 0 }},
+    advanceInput: {{ isset($booking) ? ($booking->advance_paid ?? 0) : 'null' }},
     discount: {{ $booking->discount ?? 0 }},
     
     async checkAvailability(p) {
@@ -133,11 +133,22 @@
     get totalDeposit() {
         return this.products.reduce((sum, p) => sum + (parseFloat(p.deposit) || 0), 0);
     },
+    get advance() {
+        return this.advanceInput !== null && this.advanceInput !== '' ? (parseFloat(this.advanceInput) || 0) : (this.advanceInput === '' ? 0 : this.totalDeposit);
+    },
+    set advance(val) {
+        this.advanceInput = val;
+    },
     get grandTotal() {
         return (this.totalRent + this.totalDeposit) - (parseFloat(this.discount) || 0);
     },
     get remainingBalance() {
-        return this.grandTotal - (parseFloat(this.advance) || 0);
+        return this.grandTotal - this.advance;
+    },
+    set remainingBalance(value) {
+        let val = value === '' ? 0 : parseFloat(value);
+        let diff = (this.totalRent + this.totalDeposit) - this.advance - val;
+        this.discount = diff > 0 ? diff : 0;
     },
     get hasUnavailability() {
         return this.products.some(p => !p.available || p.checking);
@@ -462,16 +473,19 @@
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="text-[10px] font-black text-blue-400 tracking-widest uppercase mb-1 block">Advance Paid Now</label>
+                                    <label class="text-[10px] font-black text-blue-400 tracking-widest uppercase mb-1 block">Advance Paid Now (Default: Deposit)</label>
                                     <div class="relative">
                                         <span class="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-900 z-10">₹</span>
                                         <input type="number" name="advance_paid" x-model="advance" class="w-full bg-white border-2 border-transparent focus:border-blue-500 rounded-2xl py-6 pl-10 pr-4 text-3xl font-black text-[#1C2434] transition-all relative z-0">
                                     </div>
                                 </div>
                             </div>
-                            <div class="bg-white/5 rounded-3xl p-8 flex flex-col items-center justify-center space-y-2 border border-white/5">
-                                <p class="text-[10px] text-slate-500 font-black uppercase tracking-widest">Balance at Dispatch</p>
-                                <p class="text-6xl font-black text-white">₹<span x-text="remainingBalance"></span></p>
+                            <div class="bg-white/5 rounded-3xl p-8 flex flex-col items-center justify-center space-y-2 border border-white/5 relative z-10">
+                                <p class="text-[10px] text-slate-500 font-black uppercase tracking-widest text-center">Balance at Dispatch <br><span class="text-blue-400/70 text-[8px]">(Auto-Applies Discount)</span></p>
+                                <div class="relative flex items-center justify-center">
+                                    <span class="font-black text-white text-4xl mr-1">₹</span>
+                                    <input type="number" x-model="remainingBalance" class="w-[180px] bg-transparent border-b-2 border-white/20 focus:border-blue-400 py-1 text-6xl font-black text-white outline-none transition-all text-center">
+                                </div>
                                 <div class="mt-4 px-4 py-1.5 bg-blue-600/20 text-blue-400 rounded-full text-[9px] font-black uppercase tracking-widest border border-blue-500/20">
                                     Final Payable by Customer
                                 </div>

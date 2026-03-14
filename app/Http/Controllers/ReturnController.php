@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use App\Models\Booking;
 use App\Models\BookingItem;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ReturnController extends Controller
 {
@@ -84,6 +86,27 @@ class ReturnController extends Controller
             'status' => 'finished'
         ]);
 
+        // WhatsApp Integration
+        try {
+            $waService = app(\App\Services\WhatsAppService::class);
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('invoice', ['booking' => $booking->load('customer', 'items.product'), 'type' => 'return']);
+            $pdfContent = $pdf->output();
+            $fileName = "{$booking->invoice_no}_return.pdf";
+
+            $totalFine = $booking->items->sum('fine_amount');
+            $totalRefund = $booking->items->sum('deposit_refunded');
+
+            $customerMsg = "✅ *સામાન પરત જમા થઈ ગયેલ છે*\n\nહેલો *{$booking->customer->name}*,\n\nતમારું ઇનવોઇસ *{$booking->invoice_no}* નું રિટર્ન સેટલમેન્ટ થઈ ગયું છે. \n\n*કુલ દંડ:* ₹" . number_format($totalFine) . "\n*ડિપોઝિટ પરત આપી:* ₹" . number_format($totalRefund) . "\n\nજલક ફેશન પસંદ કરવા બદલ આભાર! અમે આશા રાખીએ છીએ કે તમે ફરીથી આવડશો.\n\n---\n\n✅ *Return Settled*\n\nHello *{$booking->customer->name}*,\n\nYour return for *{$booking->invoice_no}* is settled. \n\n*Total Fine:* ₹" . number_format($totalFine) . "\n*Security Refunded:* ₹" . number_format($totalRefund) . "\n\nThank you for choosing *Jalak Fashion*! We hope to see you again soon.";
+            $waService->sendPdfContent($booking->customer->mobile, $pdfContent, $fileName, $customerMsg);
+
+            $adminMsg = "🔄 *Return Completed*\n\n*Invoice:* {$booking->invoice_no}\n*Customer:* {$booking->customer->name}\n*Fine Collected:* ₹" . number_format($totalFine) . "\n*Refunded:* ₹" . number_format($totalRefund);
+            $waService->sendPdfContent($waService->getAdminNumber(), $pdfContent, $fileName, $adminMsg);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("WhatsApp return send failed: " . $e->getMessage());
+        }
+
         return redirect()->route('returns.index')->with('success', "Order #{$booking->invoice_no} has been successfully closed & returned.");
     }
 }
+
