@@ -22,3 +22,19 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# vps-sync safety
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+__pycache__/
+*.pyc
+node_modules/
+vendor/
+storage/logs/
+storage/backups/
+*.sql.gz
+*.tar.gz
